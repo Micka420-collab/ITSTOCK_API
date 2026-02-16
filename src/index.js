@@ -8,7 +8,20 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const supabase = require('./config/supabase');
+// Debug env vars
+console.log('🔍 ENV VARS DEBUG:');
+console.log('PORT:', process.env.PORT);
+console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+
+let supabase;
+try {
+  supabase = require('./config/supabase');
+} catch (err) {
+  console.error('❌ Failed to load Supabase:', err.message);
+  supabase = null;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,14 +34,36 @@ app.use(express.json({ limit: '1mb' }));
 
 // Health check
 app.get('/health', async (req, res) => {
-  const { error } = await supabase.from('User').select('id').limit(1);
-  res.json({
-    status: error ? 'error' : 'ok',
-    service: 'ITStock API',
-    version: '1.0.0',
-    database: error ? 'disconnected' : 'connected',
-    timestamp: new Date().toISOString()
-  });
+  if (!supabase) {
+    return res.json({
+      status: 'error',
+      service: 'ITStock API',
+      version: '1.0.0',
+      database: 'not_configured',
+      error: 'SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquants',
+      timestamp: new Date().toISOString()
+    });
+  }
+  try {
+    const { error } = await supabase.from('User').select('id').limit(1);
+    res.json({
+      status: error ? 'error' : 'ok',
+      service: 'ITStock API',
+      version: '1.0.0',
+      database: error ? 'disconnected' : 'connected',
+      error: error?.message,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.json({
+      status: 'error',
+      service: 'ITStock API',
+      version: '1.0.0',
+      database: 'error',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Validate license
