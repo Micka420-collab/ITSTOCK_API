@@ -1,0 +1,25 @@
+{
+  "name": "itstock-api-supabase",
+  "version": "1.0.0",
+  "description": "ITStock License Server API - Supabase Direct",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "keywords": ["itstock", "license", "supabase"],
+  "author": "Nextendo",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
