@@ -32,6 +32,17 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 app.use(express.json({ limit: '1mb' }));
 
+// Check Supabase availability for API routes (except health)
+app.use('/api', (req, res, next) => {
+  if (!supabase) {
+    return res.status(503).json({ 
+      error: 'SERVICE_UNAVAILABLE',
+      message: 'Database not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.'
+    });
+  }
+  next();
+});
+
 // Health check
 app.get('/health', async (req, res) => {
   if (!supabase) {
