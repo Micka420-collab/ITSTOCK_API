@@ -1,28 +1,44 @@
 # ITStock API
 
-API de licence ITStock - Connexion directe Supabase.
+Serveur API pour le système de licence ITStock.
 
-## Deploy
+## 🚀 Déploiement
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/zIQMdC?referralCode=your-code)
+
+Ou manuellement :
+1. Fork ce repo
+2. Créer un projet sur [Railway](https://railway.app)
+3. Connecter le repo
+4. Ajouter les variables d'environnement
+
+## ⚙️ Variables d'environnement
+
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | URL Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clé service role Supabase |
+| `JWT_SECRET` | Secret JWT (min 32 caractères) |
+| `PORT` | Port (default: 3000) |
+
+## 📡 Endpoints
+
+```
+GET  /health
+POST /api/v1/licenses/validate
+POST /api/v1/licenses/activate
+POST /api/v1/licenses/deactivate
+POST /api/v1/licenses/heartbeat
+POST /api/v1/auth/login
+GET  /api/v1/plans
+```
+
+## 🧪 Test
 
 ```bash
-git init
-git add .
-git commit -m "Initial"
-git remote add origin https://github.com/Micka420-collab/ITSTOCK_API.git
-git push -u origin main
+curl https://your-app.up.railway.app/health
 ```
 
-## Variables Railway
+## 📄 License
 
-```
-SUPABASE_URL=https://azwtzuqfyxfltqzrunmf.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=votre_clé
-JWT_SECRET=votre_secret
-PORT=3000
-```
-
-## Test
-
-```bash
-curl https://votre-url.up.railway.app/health
-```
+UNLICENSED
