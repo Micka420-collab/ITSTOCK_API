@@ -9,14 +9,16 @@ console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!supabaseKey);
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY requis');
-  console.log('💡 Variables disponibles:', Object.keys(process.env).filter(k => k.includes('SUPABASE')));
+  console.log('💡 Variables SUPABASE:', Object.keys(process.env).filter(k => k.includes('SUPABASE')));
+  module.exports = null;
+} else {
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+  
+  console.log('✅ Supabase client created');
+  module.exports = supabase;
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
-
-module.exports = supabase;
