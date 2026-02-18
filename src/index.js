@@ -12,8 +12,12 @@ const crypto = require('crypto');
 console.log('🔍 ENV VARS DEBUG:');
 console.log('PORT:', process.env.PORT);
 console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+if (process.env.SUPABASE_URL) console.log('SUPABASE_URL starts with:', process.env.SUPABASE_URL.substring(0, 15) + '...');
 console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) console.log('SUPABASE_SERVICE_ROLE_KEY length:', process.env.SUPABASE_SERVICE_ROLE_KEY.length);
 console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+console.log('--- Process check ---');
+console.log('Variables available in process.env:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k === 'PORT' || k === 'JWT_SECRET'));
 
 let supabase;
 try {
@@ -293,6 +297,128 @@ app.get('/api/v1/plans', async (req, res) => {
     res.json({ plans: plans || [] });
   } catch (err) {
     res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
+// ============================================
+// STRIPE WEBHOOK HANDLER
+// ============================================
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+app.post('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('✅ Stripe webhook received:', event.type);
+  } catch (err) {
+    console.error('❌ Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      console.log('💰 Payment successful for session:', session.id);
+      
+      // Create license after successful payment
+      try {
+        const { planId, seats, userId } = session.metadata || {};
+        
+        // Generate license key
+        const licenseKey = 'ITSTOCK-' + crypto.randomBytes(12).toString('hex').toUpperCase().match(/.{4}/g).join('-');
+        
+        // Insert license into database
+        const { data: license, error } = await supabase
+          .from('License')
+          .insert({
+            licenseKey,
+            planId: planId ? parseInt(planId) : 1,
+            userId: userId ? parseInt(userId) : null,
+            maxActivations: seats ? parseInt(seats) : 1,
+            status: 'ACTIVE',
+            stripePaymentId: session.payment_intent,
+            expiresAt: null // Perpetual for now
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ Failed to create license:', error);
+        } else {
+          console.log('✅ License created:', licenseKey);
+          
+          // TODO: Send email with license key to customer
+          // This would integrate with your email service
+        }
+      } catch (err) {
+        console.error('❌ Error creating license:', err);
+      }
+      break;
+    }
+    
+    case 'invoice.payment_failed': {
+      const session = event.data.object;
+      console.log('❌ Payment failed:', session.id);
+      // Handle failed payment
+      break;
+    }
+    
+    default:
+      console.log(`Unhandled event type: ${event.type}`);
+  }
+
+  res.json({ received: true });
+});
+
+// Create Stripe checkout session
+app.post('/api/v1/create-checkout-session', async (req, res) => {
+  try {
+    const { planId, seats, userId, email } = req.body;
+    
+    // Get plan details from database
+    const { data: plan } = await supabase
+      .from('Plan')
+      .select('*')
+      .eq('id', planId)
+      .single();
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'PLAN_NOT_FOUND' });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `ITStock CRM - ${plan.displayName}`,
+            description: `${seats} poste(s) - Licence perpétuelle`,
+          },
+          unit_amount: plan.price * 100, // Convert to cents
+        },
+        quantity: seats,
+      }],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL || 'https://itstock.tech'}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://itstock.tech'}/cancel`,
+      customer_email: email,
+      metadata: {
+        planId,
+        seats,
+        userId
+      }
+    });
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (err) {
+    console.error('Stripe error:', err);
+    res.status(500).json({ error: 'STRIPE_ERROR', message: err.message });
   }
 });
 
